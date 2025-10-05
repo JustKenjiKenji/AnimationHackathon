@@ -5,6 +5,7 @@ import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
 //For the labels
 const earthLabel = document.getElementById("earthLabel");
 const sunLabel = document.getElementById("sunLabel");
+const video = document.getElementById('houseVideo');
 
 const width = window.innerWidth;
 const height = window.innerHeight;
@@ -121,58 +122,38 @@ function loadHouse(){
 const direction = new THREE.Vector3().subVectors(target, camera.position).normalize();
 const distance = 1.4; // how close you want to get
 
+/*
 earthLabel.addEventListener('click', function(event){
-	planetZoomTarget.copy(earth.position)
-		.add(new THREE.Vector3(0, 0, 3)); // Move camera near Earth
-	planetLookTarget.copy(earth.position);
-	isZoomingToPlanet = true;
 	switcher = false;
 	earth.rotation.set(0.7, 3.4, 0);
 	earthLabel.style.display = "none";
 	sunLabel.style.display = "none";
 	zoomTargetPosition.copy(target).addScaledVector(direction, -distance);
+	IsZoomingToEarth = true;
+	showLabels = false;
+});
+*/
 
-	IsZoomingToEarth = true; // trigger zoom in animate()
+sunLabel.addEventListener('click', function () {
+	switcher = false;
+	earthLabel.style.display = "none";
+	sunLabel.style.display = "none";
+
+	planetZoomTarget.copy(sun.position).add(new THREE.Vector3(0, 0, 6));
+	planetLookTarget.copy(sun.position);
+	isZoomingToPlanet = true;
+	showLabels = false;
+	earthLabel.style.display = "none";
+	sunLabel.style.display = "none";
 });
 
-const raycaster = new THREE.Raycaster();
-const mouse = new THREE.Vector2();
 let planetZoomTarget = new THREE.Vector3();
 let planetLookTarget = new THREE.Vector3();
 
-window.addEventListener('click', function(event){
-	// Convert screen coordinates to normalized device coordinates (-1 to +1)
-    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-    mouse.y = - (event.clientY / window.innerHeight) * 2 + 1;
-
-    // Raycast from the camera using the mouse position
-    raycaster.setFromCamera(mouse, camera);
-    // Intersect with clickable objects (in this case, just the Earth for now)
-	const clickablePlanets = [earth, sun];
-	const intersects = raycaster.intersectObjects(clickablePlanets, true);
-
-    if (intersects.length > 0) {
-        const clicked = intersects[0].object;
-        if (clicked === earth) {
-			console.log("Earth clicked");
-        }else if (clicked === sun){
-			planetZoomTarget.copy(sun.position)
-				.add(new THREE.Vector3(0, 0, 4.5)); // Move camera near Sun 
-			planetLookTarget.copy(sun.position); 
-			isZoomingToPlanet = true;
-			console.log("Sun clicked");
-		}
-    }
-}, false)
-
-let houseTargetPosition = new THREE.Vector3(); // where to move the camera 
 let houseLookAt = new THREE.Vector3(0, 0, 0); // where camera should look
 let isZoomingToPlanet = false;
-
-var pos=[
-	new THREE.Vector3(0, 1.8, 0),
-	new THREE.Vector3(10, 10, 1)
-]
+let zoomToPlanet = false;
+let showLabels = true;
 
 function animate(t = 0){
 	requestAnimationFrame(animate);
@@ -180,68 +161,118 @@ function animate(t = 0){
 	sun.rotation.y += 0.002
 	if(switcher == true) earth.rotation.y += 0.003;
 	renderer.render(scene, camera);
-	updateLabels();
+	if(showLabels) updateLabels();
 	
 	if (isZoomingToPlanet) {
     	zoom();
+		
 	}
 
+	if(zoomToPlanet){
+		planetZoomTarget.copy(earth.position)
+			.add(new THREE.Vector3(0, 0, 3)); // Move camera near Earth
+		planetLookTarget.copy(earth.position);
+		IsZoomingToEarth = true;
+	}
 
 	if (IsZoomingToEarth) {
 		zoomEarth();
 	}
-	
 
 	//Zoom animation to the house
 	if (IsZoomingToHouse) {
-		camera.position.lerp(zoomTargetPosition, zoomSpeed);
-		camera.lookAt(houseLookAt);
-
-		if (camera.position.distanceTo(zoomTargetPosition) < 0.05) {
-			camera.position.copy(zoomTargetPosition);
-			camera.lookAt(houseLookAt);
-			IsZoomingToHouse = false;
-			if(houseMesh) houseMesh.visible = false;
-			squareMesh.visible = false;
-
-		}
-		
+		zoomHouse();
 	}
 	
 }
 animate();
 
 
-function zoomEarth(){
-    // Lerp camera position toward zoomTargetPosition
-		camera.position.lerp(zoomTargetPosition, zoomSpeed);
+let earthZoomStep = 0;
+function zoomEarth() {
+	if (earthZoomStep === 0) {
+		// Step 0: Zoom to a position where Earth is fully visible
+		const earthMidView = earth.position.clone().add(new THREE.Vector3(0, 0, 5));
+		camera.position.lerp(earthMidView, zoomSpeed);
+		camera.lookAt(earth.position);
 
-		// Always look at the target
-		camera.lookAt(target);
-
-		// Stop zooming when close enough
-		if (camera.position.distanceTo(zoomTargetPosition) < 0.05) {
-			camera.position.copy(zoomTargetPosition);
-			IsZoomingToEarth = false;
-			earth.visible = false;
-			//Loads house and zooms in there
-			loadHouse();
-			camera.position.set(0,1,0);
-			camera.lookAt(new THREE.Vector3(0, 0, 0));
-			zoomTargetPosition.set(0, 0.22, 0); // adjust as needed for your scene
-			IsZoomingToHouse = true;
+		if (camera.position.distanceTo(earthMidView) < 0.05) {
+			camera.position.copy(earthMidView);
+			camera.lookAt(earth.position);
+			earthZoomStep = 1; // Move to next step
 		}
+	}
+
+	else if (earthZoomStep === 1) {
+		// Step 1: Zoom in even closer to Earth
+		const earthCloseView = earth.position.clone().add(new THREE.Vector3(0, 0, 1.2));
+		camera.position.lerp(earthCloseView, zoomSpeed);
+		camera.lookAt(earth.position);
+
+		if (camera.position.distanceTo(earthCloseView) < 0.05) {
+			camera.position.copy(earthCloseView);
+			camera.lookAt(earth.position);
+			earthZoomStep = 2; // Move to next step
+		}
+	}
+
+	else if (earthZoomStep === 2) {
+		// Step 2: Done with Earth zoom, trigger zoom to house
+		IsZoomingToEarth = false;
+		earth.visible = false;
+
+		loadHouse();
+		camera.position.set(0, 1, 0);
+		camera.lookAt(new THREE.Vector3(0, 0, 0));
+		zoomTargetPosition.set(0, 0.3, 0);
+		IsZoomingToHouse = true;
+		// Reset for next time
+		earthZoomStep = 0;
+	}
+}
+
+
+function zoomHouse(){
+	camera.position.lerp(zoomTargetPosition, zoomSpeed);
+	camera.lookAt(houseLookAt);
+
+	if (camera.position.distanceTo(zoomTargetPosition) < 0.05) {
+		camera.position.copy(zoomTargetPosition);
+		camera.lookAt(houseLookAt);
+		IsZoomingToHouse = false;
+		if(houseMesh) houseMesh.visible = false;
+		squareMesh.visible = false;
+		video.play();
+		video.onended = () => {
+			resetScene();
+		};
+	}
 }
 
 function zoom(){
     camera.position.lerp(planetZoomTarget, zoomSpeed);
-    camera.lookAt(planetLookTarget);
+	camera.lookAt(planetLookTarget);
 
-    if (camera.position.distanceTo(planetZoomTarget) < 0.05) {
-        camera.position.copy(planetLookTarget);
-        camera.lookAt(planetLookTarget);
-        isZoomingToPlanet = false;
-    }
+	if (camera.position.distanceTo(planetZoomTarget) < 0.05) {
+		camera.position.copy(planetZoomTarget);
+		camera.lookAt(planetLookTarget);
+		isZoomingToPlanet = false;
+
+		// Once zoomed to the sun, play video
+		/*
+		video.play();
+
+		video.onended = () => {
+			// After video ends, start zoom to Earth
+			
+			// Set camera target behind Earth
+			
+		};
+		*/
+		earth.rotation.set(0.7, 3.4, 0);
+		zoomTargetPosition.copy(target).addScaledVector(direction, -distance);
+		IsZoomingToEarth = true;
+	}
 }
 
 function updateLabels() {
@@ -268,3 +299,53 @@ function updateLabels() {
   		earthLabel.style.display = 'none';
 	}	
 }
+
+/**
+ * FUNCTIONS FOR THE VIDEO
+ */
+function resetScene() {
+	// 1. Reset camera
+	camera.position.set(0, 0, 7.5);
+	camera.lookAt(new THREE.Vector3(0, 0, 0));
+	controls.reset(); // Reset OrbitControls if needed
+
+	// 2. Show Earth and Sun again
+	earth.visible = true;
+	sun.visible = true;
+
+	// 3. Show labels again
+	showLabels = true;
+	earthLabel.style.display = 'block';
+	sunLabel.style.display = 'block';
+
+	// 4. Remove house and square if they exist
+	if (houseMesh) {
+		scene.remove(houseMesh);
+		houseMesh.traverse((child) => {
+			if (child.isMesh) {
+				child.geometry.dispose();
+				if (Array.isArray(child.material)) {
+					child.material.forEach((m) => m.dispose());
+				} else {
+					child.material.dispose();
+				}
+			}
+		});
+		houseMesh = null;
+	}
+
+	if (squareMesh) {
+		scene.remove(squareMesh);
+		squareMesh.geometry.dispose();
+		squareMesh.material.dispose();
+	}
+
+	// 5. Reset any zoom flags
+	switcher = true;
+	IsZoomingToEarth = false;
+	IsZoomingToHouse = false;
+	isZoomingToPlanet = false;
+	zoomToPlanet = false;
+	earthZoomStep = 0;
+}
+
